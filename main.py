@@ -2,20 +2,20 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from fpdf import FPDF
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+import os
 import uuid
 
 app = FastAPI()
 
-# CONFIGURACIÓN DE SEGURIDAD (CORS)
-# Esto permite que tu WordPress en Hostinger se conecte a Render
+# Configuración de CORS para permitir peticiones desde Hostinger
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # En producción, podés poner tu dominio específico
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Estructura de los datos que vienen desde Divi
 class ItemServicio(BaseModel):
     servicio: str
     horas: float
@@ -31,22 +31,20 @@ async def crear_propuesta(data: PropuestaData):
     pdf = FPDF()
     pdf.add_page()
     
-    # Diseño de Cabecera (Estilo IT Agency)
+    # --- DISEÑO DEL PDF ---
     pdf.set_fill_color(30, 30, 30)
     pdf.rect(0, 0, 210, 40, 'F')
     
     pdf.set_font("Arial", 'B', 16)
-    pdf.set_text_color(0, 255, 204) # Color Cian IT
+    pdf.set_text_color(0, 255, 204) 
     pdf.cell(190, 20, txt="PROPUESTA TÉCNICA Y ECONÓMICA", ln=True, align='C')
     
-    # Información del Cliente
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", 'B', 12)
     pdf.ln(25)
     pdf.cell(100, 10, txt=f"Cliente: {data.empresa}")
     pdf.cell(100, 10, txt=f"Proyecto: {data.proyecto}", ln=True)
     
-    # Tabla de Ítems
     pdf.ln(10)
     pdf.set_fill_color(240, 240, 240)
     pdf.set_font("Arial", 'B', 10)
@@ -63,28 +61,22 @@ async def crear_propuesta(data: PropuestaData):
         pdf.cell(50, 10, txt=f"${subtotal:,.2f}", border=1, ln=True, align='C')
         total += subtotal
         
-    # Total Final
     pdf.ln(5)
     pdf.set_font("Arial", 'B', 12)
     pdf.cell(140, 12, txt="INVERSIÓN TOTAL ESTIMADA ", border=0, align='R')
     pdf.set_text_color(0, 150, 120)
     pdf.cell(50, 12, txt=f"${total:,.2f}", border=1, ln=True, align='C')
-    
-    # Pie de página legal
-    pdf.ln(20)
-    pdf.set_font("Arial", 'I', 8)
-    pdf.set_text_color(100, 100, 100)
-    pdf.multi_cell(190, 5, txt="Esta propuesta tiene carácter confidencial y una validez de 15 días corridos. Los servicios de IT están sujetos a términos de mantenimiento anual.")
 
-    # Nombre único para el archivo
+    # --- GENERACIÓN DEL ARCHIVO ---
     file_id = str(uuid.uuid4())[:8]
     filename = f"propuesta_{data.empresa.replace(' ', '_')}_{file_id}.pdf"
+    filepath = os.path.join("/tmp", filename) if os.path.exists("/tmp") else filename
     
-    # Guardar localmente en el contenedor (Render lo borrará al reiniciar, ideal por privacidad)
-    pdf.output(filename)
+    pdf.output(filepath)
     
-    return {
-        "mensaje": f"Propuesta para {data.empresa} generada con éxito",
-        "total": total,
-        "archivo_generado": filename
-    }
+    # Retornamos el archivo para descarga automática
+    return FileResponse(
+        path=filepath, 
+        filename=filename, 
+        media_type='application/pdf'
+    )
