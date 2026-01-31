@@ -8,7 +8,7 @@ import uuid
 
 app = FastAPI()
 
-# Configuración de CORS para permitir peticiones desde Hostinger
+# Configuración de seguridad para conectar Hostinger con Render
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,7 +31,7 @@ async def crear_propuesta(data: PropuestaData):
     pdf = FPDF()
     pdf.add_page()
     
-    # --- DISEÑO DEL PDF ---
+    # --- DISEÑO TÉCNICO DEL PDF ---
     pdf.set_fill_color(30, 30, 30)
     pdf.rect(0, 0, 210, 40, 'F')
     
@@ -67,14 +67,14 @@ async def crear_propuesta(data: PropuestaData):
     pdf.set_text_color(0, 150, 120)
     pdf.cell(50, 12, txt=f"${total:,.2f}", border=1, ln=True, align='C')
 
-    # --- GENERACIÓN DEL ARCHIVO ---
+    # Generación de archivo único
     file_id = str(uuid.uuid4())[:8]
     filename = f"propuesta_{data.empresa.replace(' ', '_')}_{file_id}.pdf"
-    filepath = os.path.join("/tmp", filename) if os.path.exists("/tmp") else filename
     
+    # Usamos /tmp porque es la carpeta de escritura permitida en servidores Linux como Render
+    filepath = os.path.join("/tmp", filename)
     pdf.output(filepath)
     
-    # Retornamos el archivo para descarga automática
     return FileResponse(
         path=filepath, 
         filename=filename, 
